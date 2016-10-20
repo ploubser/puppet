@@ -226,6 +226,33 @@ class Puppet::Configurer
     end
   end
 
+  #[
+  #  {
+  #    name     : string
+  #    version  : string
+  #    provider : string
+  #  }
+  #]
+
+  def gather_package_inventory
+    package_inventory = []
+    packages = nil
+    benchmark = Benchmark.measure do
+      packages = Puppet::Resource.indirection.search("package", {})
+    end
+
+    Puppet.notice "BENCH (PACKAGES) #{benchmark}".strip
+
+    packages.map do |package|
+      [package[:ensure]].flatten.map do |version|
+        {name: package.name,
+         version: version.to_s,
+         provider: package[:provider]}
+       end
+     end.flatten
+
+  end
+
   def run_internal(options)
     report = options[:report]
 
@@ -341,6 +368,14 @@ class Puppet::Configurer
       options[:report].catalog_uuid = catalog.catalog_uuid
       options[:report].cached_catalog_status = @cached_catalog_status
       apply_catalog(catalog, options)
+      if Puppet[:gather_package_inventory]
+        Puppet.notice "Gathering package inventory"
+        benchmark = Benchmark.measure do
+          report.add_inventory(gather_package_inventory)
+        end
+        Puppet.notice "BENCH (ADD INVENTORY) #{benchmark}".strip
+        Puppet.notice "Gathering package inventory - done"
+      end
       report.exit_status
     rescue => detail
       Puppet.log_exception(detail, "Failed to apply catalog: #{detail}")

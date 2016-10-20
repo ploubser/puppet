@@ -226,6 +226,73 @@ class Puppet::Configurer
     end
   end
 
+  def gather_package_inventory()
+    packages = nil
+    Puppet.notice "BENCH (PACKAGES)" + Benchmark.measure {
+      packages = Puppet::Resource.indirection.search("package", {})
+    }.to_s
+    packages.map { |package|
+      package[:ensure].map { |version|
+        {
+           name: package.name,
+           version: version.to_s,
+           provider: package[:provider]
+        }
+      }
+    }.flatten
+  end
+
+  def gather_user_inventory()
+    users = nil
+    Puppet.notice "BENCH (USERS)" + Benchmark.measure {
+      users = Puppet::Resource.indirection.search("user", {})
+    }.to_s
+    users.map { |user|
+      {
+         name: user.name
+         # some other user specific fields here ...
+      }
+    }.flatten
+  end
+
+  def gather_group_inventory()
+    groups = nil
+    Puppet.notice "BENCH (GROUPS)" + Benchmark.measure {
+      groups = Puppet::Resource.indirection.search("group", {})
+    }.to_s
+    groups.map { |group|
+      {
+         name: group.name,
+         # some other group specific fields here ...
+      }
+    }.flatten
+  end
+
+  def gather_service_inventory()
+    services = nil
+    Puppet.notice "BENCH (SERVICES)" + Benchmark.measure {
+      services = Puppet::Resource.indirection.search("service", {})
+    }.to_s
+    services.map { |service|
+      {
+         name: service.name,
+         # some other service specific fields here ...
+      }
+    }.flatten
+  end
+
+  def add_inventory(report)
+    packages = gather_package_inventory()
+    users = gather_user_inventory()
+    groups = gather_group_inventory()
+    services = gather_service_inventory()
+    report.add_inventory(
+      {"packages" => packages,
+       "users" => users,
+       "groups" => groups,
+       "services" => services})
+  end
+
   def run_internal(options)
     report = options[:report]
 
@@ -341,6 +408,7 @@ class Puppet::Configurer
       options[:report].catalog_uuid = catalog.catalog_uuid
       options[:report].cached_catalog_status = @cached_catalog_status
       apply_catalog(catalog, options)
+      Puppet.notice "BENCH (ADD INVENTORY)" + Benchmark.measure {add_inventory(report)}.to_s
       report.exit_status
     rescue => detail
       Puppet.log_exception(detail, "Failed to apply catalog: #{detail}")

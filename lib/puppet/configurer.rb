@@ -228,57 +228,69 @@ class Puppet::Configurer
 
   def gather_package_inventory()
     packages = nil
-    Puppet.notice "BENCH (PACKAGES)" + Benchmark.measure {
+    benchmark = Benchmark.measure do
       packages = Puppet::Resource.indirection.search("package", {})
-    }.to_s
-    packages.map { |package|
-      package[:ensure].map { |version|
+    end
+
+    Puppet.notice "BENCH (PACKAGES) #{benchmark}"
+
+    packages.map do |package|
+      [package[:ensure]].flatten.map do |version|
         {
            name: package.name,
            version: version.to_s,
            provider: package[:provider]
         }
-      }
-    }.flatten
+      end
+    end.flatten
   end
 
   def gather_user_inventory()
     users = nil
-    Puppet.notice "BENCH (USERS)" + Benchmark.measure {
+    benchmark = Benchmark.measure do
       users = Puppet::Resource.indirection.search("user", {})
-    }.to_s
-    users.map { |user|
+    end
+
+    Puppet.notice "BENCH (USERS) #{benchmark}"
+
+    users.map do |user|
       {
          name: user.name
          # some other user specific fields here ...
       }
-    }.flatten
+    end
   end
 
   def gather_group_inventory()
     groups = nil
-    Puppet.notice "BENCH (GROUPS)" + Benchmark.measure {
+    benchmark = Benchmark.measure do
       groups = Puppet::Resource.indirection.search("group", {})
-    }.to_s
-    groups.map { |group|
+    end
+
+    Puppet.notice "BENCH (GROUPS) #{benchmark}"
+
+    groups.map do |group|
       {
          name: group.name,
          # some other group specific fields here ...
       }
-    }.flatten
+    end
   end
 
   def gather_service_inventory()
     services = nil
-    Puppet.notice "BENCH (SERVICES)" + Benchmark.measure {
+    benchmark = Benchmark.measure do
       services = Puppet::Resource.indirection.search("service", {})
-    }.to_s
-    services.map { |service|
+    end
+
+    Puppet.notice "BENCH (SERVICES) #{benchmark}"
+
+    services.map do |service|
       {
          name: service.name,
          # some other service specific fields here ...
       }
-    }.flatten
+    end
   end
 
   def add_inventory(report)

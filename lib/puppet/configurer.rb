@@ -226,83 +226,47 @@ class Puppet::Configurer
     end
   end
 
-  def gather_package_inventory()
-    packages = nil
+  def gather_unmanaged_resource_inventory(resource)
+    name = resource[:name]
+    fields = resource[:fields]
+    resources = nil
     benchmark = Benchmark.measure do
-      packages = Puppet::Resource.indirection.search("package", {})
+      resources = Puppet::Resource.indirection.search(name, {})
     end
 
-    Puppet.notice "BENCH (PACKAGES) #{benchmark}"
+    Puppet.notice "BENCH (#{name.upcase}) #{benchmark}"
 
-    packages.map do |package|
-      [package[:ensure]].flatten.map do |version|
-        {
-           name: package.name,
-           version: version.to_s,
-           provider: package[:provider]
-        }
+    resources.map do |r|
+      resource = {}
+      fields.each do |field|
+        field = field.to_sym
+        if r.respond_to?(field)
+          resource[field] = r.send(field)
+        elsif (tmp = r[field]) != nil
+          resource[field] = tmp
+        end
       end
-    end.flatten
-  end
-
-  def gather_user_inventory()
-    users = nil
-    benchmark = Benchmark.measure do
-      users = Puppet::Resource.indirection.search("user", {})
-    end
-
-    Puppet.notice "BENCH (USERS) #{benchmark}"
-
-    users.map do |user|
-      {
-         name: user.name
-         # some other user specific fields here ...
-      }
-    end
-  end
-
-  def gather_group_inventory()
-    groups = nil
-    benchmark = Benchmark.measure do
-      groups = Puppet::Resource.indirection.search("group", {})
-    end
-
-    Puppet.notice "BENCH (GROUPS) #{benchmark}"
-
-    groups.map do |group|
-      {
-         name: group.name,
-         # some other group specific fields here ...
-      }
-    end
-  end
-
-  def gather_service_inventory()
-    services = nil
-    benchmark = Benchmark.measure do
-      services = Puppet::Resource.indirection.search("service", {})
-    end
-
-    Puppet.notice "BENCH (SERVICES) #{benchmark}"
-
-    services.map do |service|
-      {
-         name: service.name,
-         # some other service specific fields here ...
-      }
+      resource
     end
   end
 
   def add_inventory(report)
-    packages = gather_package_inventory()
-    users = gather_user_inventory()
-    groups = gather_group_inventory()
-    services = gather_service_inventory()
-    report.add_inventory(
-      {"packages" => packages,
-       "users" => users,
-       "groups" => groups,
-       "services" => services})
+    inventory = {}
+    # TODO(ploubser): Gather this from puppet.conf
+    default_resources = [{:name   => "package",
+                          :fields => ["name","ensure","provider"]},
+                        {:name    => "user",
+                         :fields  => ["name"]},
+                        {:name    => "group",
+                         :fields  => ["name"]},
+                        {:name    => "service",
+                         :fields  => ["name"]}]
+
+    default_resources.each do |resource|
+      inventory[resource[:name].to_sym] = gather_unmanaged_resource_inventory(resource)
+    end
+
+    report.add_inventory(inventory)
   end
 
   def run_internal(options)

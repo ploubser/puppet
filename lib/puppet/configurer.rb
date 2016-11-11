@@ -226,47 +226,23 @@ class Puppet::Configurer
     end
   end
 
-  def gather_unmanaged_resource_inventory(resource)
-    name = resource[:name]
-    fields = resource[:fields]
-    resources = nil
+  def gather_package_inventory
+    package_inventory = []
+    packages = nil
     benchmark = Benchmark.measure do
-      resources = Puppet::Resource.indirection.search(name, {})
+      packages = Puppet::Resource.indirection.search("package", {})
     end
 
-    Puppet.notice "BENCH (#{name.upcase}) #{benchmark}"
+    Puppet.notice "BENCH (PACKAGES) #{benchmark}"
 
-    resources.map do |r|
-      resource = {}
-      fields.each do |field|
-        field = field.to_sym
-        if r.respond_to?(field)
-          resource[field] = r.send(field)
-        elsif (tmp = r[field]) != nil
-          resource[field] = tmp
-        end
-      end
-      resource
-    end
-  end
+    packages.map do |package|
+      [package[:ensure]].flatten.map do |version|
+        {name: package.name,
+         version: version.to_s,
+         provider: package[:provider]}
+       end
+     end.flatten
 
-  def add_inventory(report)
-    inventory = {}
-    # TODO(ploubser): Gather this from puppet.conf
-    default_resources = [{:name   => "package",
-                          :fields => ["name","ensure","provider"]},
-                        {:name    => "user",
-                         :fields  => ["name"]},
-                        {:name    => "group",
-                         :fields  => ["name"]},
-                        {:name    => "service",
-                         :fields  => ["name"]}]
-
-    default_resources.each do |resource|
-      inventory[resource[:name].to_sym] = gather_unmanaged_resource_inventory(resource)
-    end
-
-    report.add_inventory(inventory)
   end
 
   def run_internal(options)
@@ -384,7 +360,12 @@ class Puppet::Configurer
       options[:report].catalog_uuid = catalog.catalog_uuid
       options[:report].cached_catalog_status = @cached_catalog_status
       apply_catalog(catalog, options)
-      Puppet.notice "BENCH (ADD INVENTORY)" + Benchmark.measure {add_inventory(report)}.to_s
+      if Puppet[:gather_package_inventory]
+        benchmark = Benchmark.measure do
+          report.add_inventory(gather_package_inventory)
+        end
+        Puppet.notice "BENCH (ADD INVENTORY) #{benchmark}"
+      end
       report.exit_status
     rescue => detail
       Puppet.log_exception(detail, "Failed to apply catalog: #{detail}")

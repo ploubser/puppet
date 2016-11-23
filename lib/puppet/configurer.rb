@@ -226,31 +226,29 @@ class Puppet::Configurer
     end
   end
 
-  #[
-  #  {
-  #    name     : string
-  #    version  : string
-  #    provider : string
-  #  }
-  #]
+  def gather_inventory(resource_types)
+    resource_inventory = {}
 
-  def gather_package_inventory
-    package_inventory = []
-    packages = nil
-    benchmark = Benchmark.measure do
-      packages = Puppet::Resource.indirection.search("package", {})
+    resource_types.each do |r_t|
+      resources = nil
+      benchmark = Benchmark.measure do
+        resources = Puppet::Resource.indirection.search(r_t, {})
+      end
+
+      Puppet.notice "BENCH (#{r_t.upcase}) #{benchmark}".strip
+
+      resource_inventory[r_t] = resources.map do |resource|
+        resource_name = resource.name
+        resource_name.slice!("#{r_t.capitalize}/")
+        resource_details = {:name => resource_name }
+        resource.keys.each do |k| # Collect it all and let god sort it out
+          resource_details[k] = resource[k]
+        end
+        resource_details
+      end
     end
 
-    Puppet.notice "BENCH (PACKAGES) #{benchmark}".strip
-
-    packages.map do |package|
-      [package[:ensure]].flatten.map do |version|
-        {name: package.name,
-         version: version.to_s,
-         provider: package[:provider]}
-       end
-     end.flatten
-
+    return resource_inventory
   end
 
   def run_internal(options)
@@ -369,12 +367,12 @@ class Puppet::Configurer
       options[:report].cached_catalog_status = @cached_catalog_status
       apply_catalog(catalog, options)
       if Puppet[:gather_package_inventory]
-        Puppet.notice "Gathering package inventory"
+        Puppet.notice "Gathering inventory"
         benchmark = Benchmark.measure do
-          report.add_inventory(gather_package_inventory)
+          report.add_inventory(gather_inventory(["package", "user"])) # extent the list as we add resources with releases
         end
         Puppet.notice "BENCH (ADD INVENTORY) #{benchmark}".strip
-        Puppet.notice "Gathering package inventory - done"
+        Puppet.notice "Gathering inventory - done"
       end
       report.exit_status
     rescue => detail

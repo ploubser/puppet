@@ -1402,6 +1402,11 @@ EOT
         apply. You can see man pages by running `puppet <SUBCOMMAND> --help`,
         or read them online at https://docs.puppetlabs.com/puppet/latest/reference/man/."
     },
+    :pe_enabled => {
+      :default => false,
+      :type => :boolean,
+      :desc => "Enable Puppet Enterprise features"
+    },
     :server => {
       :default => "puppet",
       :desc => "The puppet master server to which the puppet agent should connect.",

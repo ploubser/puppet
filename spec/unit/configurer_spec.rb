@@ -422,6 +422,40 @@ describe Puppet::Configurer do
         @agent.run
       end
     end
+
+    describe "when gathering the package inventory" do
+      before do
+        @report = Puppet::Transaction::Report.new("apply")
+        @package = mock
+        @package.stubs(:name).returns("Package[mock_package")
+        @package.stubs(:keys).returns([:name, :ensure, :provider, :configfiles, :reinstall_on_refresh, :loglevel])
+        @package.stubs(:[]).with(:name).returns("mock_package")
+        @package.stubs(:[]).with(:ensure).returns("1.2.8")
+        @package.stubs(:[]).with(:provider).returns(:mock_provider)
+        @package.stubs(:[]).with(:configfiles).returns(:keep)
+        @package.stubs(:[]).with(:reinstall_on_refresh).returns(:false)
+        @package.stubs(:[]).with(:loglevel).returns(:notice)
+      end
+
+      it "should add the list of installed packages to the report when run in pe_mode" do
+        Puppet[:pe_enabled] = true
+        Puppet::Resource.indirection.expects(:search).with("package", {}).returns([@package])
+        @agent.run({:report => @report})
+        expect(@report.inventory).to eq({:package => [{:name=>"mock_package",
+                                                       :ensure=>"1.2.8",
+                                                       :provider=>:mock_provider,
+                                                       :configfiles=>:keep,
+                                                       :reinstall_on_refresh=>:false,
+                                                       :loglevel=>:notice}]})
+      end
+
+      it "should not add the package inventory when not run in pe_mode" do
+        Puppet[:pe_enabled] = false
+        Puppet::Resource.indirection.expects(:search).with("package", {}).never
+        @agent.run({:report => @report})
+        expect(@report.inventory).to eq({})
+      end
+    end
   end
 
   describe "when initialized with a transaction_uuid" do

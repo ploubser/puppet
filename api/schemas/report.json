@@ -165,6 +165,17 @@
         "corrective_change": {
             "description": "True if a change or noop event in this report was caused by an unexpected change to the system between Puppet runs.",
             "type":        "boolean"
+        },
+
+        "inventory": {
+            "description": "A collection of resources present on the node this report was created on",
+            "type":        "object",
+            "properties":  {
+                "package": {
+                    "description": "List of all packages present",
+                    "type":        "object"
+                }
+            }
         }
     },
 
